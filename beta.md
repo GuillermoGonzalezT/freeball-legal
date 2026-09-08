@@ -100,10 +100,11 @@ No hace falta que investigues ni que lo describas con precisión técnica.
 
 ## Cuando hayas usado la app un rato
 
-Hay un **[cuestionario de feedback](#)** con preguntas concretas sobre qué te
-pareció. Te va a llevar unos minutos y es lo más útil que podés darnos.
+Respondé el **[cuestionario de feedback](https://docs.google.com/forms/d/e/1FAIpQLSetSW9cIXbeRzl17gnjZTIBYFdCHxlgnRLlqm3N89aVtH3I2w/viewform)**. Son unos minutos y es lo
+más útil que podés darnos.
 
-*(El enlace al cuestionario te lo pasamos aparte.)*
+Es anónimo: no pide tu correo, salvo que vos quieras dejarlo al final para que
+te contactemos.
 
 ---
 
