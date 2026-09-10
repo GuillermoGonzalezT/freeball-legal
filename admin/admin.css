@@ -115,7 +115,7 @@ input:focus { outline: none; border-color: var(--celeste-os); background: var(--
 .menu a:hover { background: var(--fondo); color: var(--texto); }
 .menu a[aria-current="page"] { background: var(--celeste-cl); color: var(--texto); font-weight: 600; }
 
-.contenido { grid-area: contenido; padding: 28px 32px; max-width: 1100px; }
+.contenido { grid-area: contenido; padding: 28px 32px; max-width: 1320px; width: 100%; }
 .contenido h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
 .contenido .bajada { margin: 0 0 24px; color: var(--texto-suave); }
 
@@ -125,6 +125,58 @@ input:focus { outline: none; border-color: var(--celeste-os); background: var(--
 }
 .tarjeta h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
 .tarjeta p { margin: 0; color: var(--texto-suave); line-height: 1.6; }
+
+.contenido .aviso { margin-top: 0; }
+
+/* ── Analytics ────────────────────────────────────────────────────────── */
+
+.kpis {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;
+  margin-bottom: 28px;
+}
+.kpi-titulo { font-size: 13px; font-weight: 600; color: var(--texto-suave); }
+.kpi-valor {
+  font-size: 34px; font-weight: 800; letter-spacing: -1px; line-height: 1.2; margin: 4px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-detalle { font-size: 12px; color: var(--texto-suave); }
+
+.segmentos {
+  display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin-bottom: 16px;
+  background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px;
+}
+.segmentos button {
+  background: transparent; color: var(--texto-suave);
+  padding: 7px 14px; border-radius: 8px; font-weight: 500;
+}
+.segmentos button:hover { color: var(--texto); background: var(--fondo); }
+.segmentos button[aria-pressed="true"] { background: var(--celeste-cl); color: var(--texto); font-weight: 600; }
+
+.graficas {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;
+  transition: opacity .15s;
+}
+.graficas.actualizando { opacity: .5; }
+
+.grafica-cabecera { margin-bottom: 14px; }
+.grafica-resumen { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
+.grafica-valor { font-size: 26px; font-weight: 800; letter-spacing: -.6px; font-variant-numeric: tabular-nums; }
+.grafica-desde, .grafica-sin-datos { font-size: 12px; color: var(--texto-suave); }
+.grafica-lienzo { position: relative; height: 280px; }
+.tarjeta .grafica-nota { margin-top: 12px; font-size: 12px; }
+
+.variacion {
+  font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.variacion.sube  { color: #1F8A5B; background: #E3F5EC; }
+.variacion.baja  { color: var(--rojo); background: var(--rojo-cl); }
+.variacion.igual { color: var(--texto-suave); background: var(--fondo); }
+
+@media (max-width: 1100px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .graficas { grid-template-columns: 1fr; }
+}
 
 /* En pantallas angostas el menú pasa arriba, como una fila de pestañas. */
 @media (max-width: 720px) {

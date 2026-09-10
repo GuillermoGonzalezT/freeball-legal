@@ -25,24 +25,16 @@
   });
 
   // ── Secciones ───────────────────────────────────────────────────────────
-  // Cada sección es { id, titulo, render(contenedor) }. Para sumar una nueva
-  // alcanza con agregarla a esta lista: el menú y la navegación salen solos.
+  // Cada sección vive en su archivo de admin/secciones/ y se anota en
+  // window.ADMIN_SECCIONES como { id, titulo, render(contenedor, ctx) }. Esos
+  // archivos se cargan ANTES que este (ver index.html). render puede devolver
+  // una función de limpieza, que se llama al salir de la sección.
+  //
+  // Para sumar una sección: crear el archivo y agregar su <script>. El menú y
+  // la navegación salen solos, en el orden de los <script>.
 
-  var SECCIONES = [
-    {
-      id: 'inicio',
-      titulo: 'Inicio',
-      render: function (el) {
-        el.appendChild(crear('h1', null, 'Inicio'));
-        el.appendChild(crear('p', 'bajada', 'Panel de administración de FreeBall.'));
-        var tarjeta = crear('div', 'tarjeta');
-        tarjeta.appendChild(crear('h2', null, 'Todavía no hay secciones'));
-        tarjeta.appendChild(crear('p', null,
-          'Las herramientas de administración se van a ir sumando al menú de la izquierda.'));
-        el.appendChild(tarjeta);
-      },
-    },
-  ];
+  var SECCIONES = window.ADMIN_SECCIONES || [];
+  var limpiarSeccion = null;
 
   // ── Utilidades ──────────────────────────────────────────────────────────
 
@@ -57,6 +49,17 @@
     if (texto != null) el.textContent = texto;
     return el;
   }
+
+  // Recuadro de error para las secciones. El detalle técnico va a la consola,
+  // no a la pantalla.
+  function cajaError(mensaje, error) {
+    if (error) console.error(mensaje, error);
+    var caja = crear('div', 'aviso', mensaje + ' Probá recargar la página.');
+    return caja;
+  }
+
+  // Lo que recibe cada sección para trabajar.
+  var ctx = { sb: sb, crear: crear, error: cajaError };
 
   function mostrarVista(nombre) {
     $('vista-cargando').hidden = nombre !== 'cargando';
@@ -137,10 +140,25 @@
   }
 
   function navegar() {
-    var seccion = seccionActual();
+    if (limpiarSeccion) limpiarSeccion();
+    limpiarSeccion = null;
+
     var contenido = $('contenido');
     contenido.replaceChildren();
-    seccion.render(contenido);
+
+    var seccion = seccionActual();
+    if (!seccion) {
+      contenido.appendChild(crear('p', 'bajada', 'Todavía no hay secciones.'));
+      return;
+    }
+
+    // Un contenedor nuevo por visita: si la sección todavía está cargando
+    // datos cuando se sale de ella, escribe en un elemento que ya no está en
+    // la página y no pisa a la sección nueva.
+    var el = crear('div');
+    contenido.appendChild(el);
+    var limpiar = seccion.render(el, ctx);
+    if (typeof limpiar === 'function') limpiarSeccion = limpiar;
 
     Array.prototype.forEach.call($('menu').children, function (a) {
       if (a.dataset.seccion === seccion.id) a.setAttribute('aria-current', 'page');
@@ -182,15 +200,22 @@
     await entrar(res.data.session);
   });
 
+  function salirDelPanel() {
+    if (limpiarSeccion) limpiarSeccion();
+    limpiarSeccion = null;
+    $('contenido').replaceChildren();
+    mostrarVista('login');
+  }
+
   $('boton-salir').addEventListener('click', async function () {
     await cerrarSesion();
-    mostrarVista('login');
+    salirDelPanel();
   });
 
   // Si la sesión se pierde por su cuenta (token vencido que no se pudo
   // renovar), volver al login en vez de dejar un panel que ya no funciona.
   sb.auth.onAuthStateChange(function (evento) {
-    if (evento === 'SIGNED_OUT') mostrarVista('login');
+    if (evento === 'SIGNED_OUT') salirDelPanel();
   });
 
   // ── Arranque ────────────────────────────────────────────────────────────

@@ -64,6 +64,12 @@ permalink: /admin/
   <div id="vista-cargando" class="cargando">Cargando…</div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+
+  <!-- Secciones, en el orden en que aparecen en el menú. Van antes que
+       admin.js, que las lee al arrancar. -->
+  <script src="{{ '/admin/secciones/analytics.js' | relative_url }}"></script>
+
   <script src="{{ '/admin/admin.js' | relative_url }}"></script>
 </body>
 </html>
