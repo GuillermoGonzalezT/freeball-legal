@@ -50,6 +50,30 @@
     return el;
   }
 
+  // Para armar bloques anidados sin una línea por elemento, con la misma
+  // regla: el texto siempre como texto.
+  //   h('div', { class: 'x', on: { click: fn } }, 'texto', h('b', null, 'hijo'))
+  // props: class, text, title, attrs (atributos sueltos), on (eventos).
+  // Los hijos null o false se ignoran, para poder escribir cond && h(...).
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    var p = props || {};
+    if (p.class) el.className = p.class;
+    if (p.text != null) el.textContent = p.text;
+    if (p.title) el.title = p.title;
+    if (p.attrs) Object.keys(p.attrs).forEach(function (k) {
+      if (p.attrs[k] != null && p.attrs[k] !== false) el.setAttribute(k, p.attrs[k] === true ? '' : p.attrs[k]);
+    });
+    if (p.on) Object.keys(p.on).forEach(function (k) { el.addEventListener(k, p.on[k]); });
+    for (var i = 2; i < arguments.length; i++) agregarHijo(el, arguments[i]);
+    return el;
+  }
+  function agregarHijo(el, hijo) {
+    if (hijo == null || hijo === false) return;
+    if (Array.isArray(hijo)) { hijo.forEach(function (x) { agregarHijo(el, x); }); return; }
+    el.appendChild(hijo instanceof Node ? hijo : document.createTextNode(String(hijo)));
+  }
+
   // Recuadro de error para las secciones. El detalle técnico va a la consola,
   // no a la pantalla.
   function cajaError(mensaje, error) {
@@ -58,8 +82,26 @@
     return caja;
   }
 
+  // Número al lado de cada sección en el menú. Una sección lo ofrece
+  // definiendo insignia(ctx), que devuelve una promesa con un número; 0 o
+  // null no muestra nada. Las secciones llaman a actualizarInsignias()
+  // cuando algo cambió (por ejemplo, al resolver un reporte).
+  function actualizarInsignias() {
+    SECCIONES.forEach(function (s) {
+      if (typeof s.insignia !== 'function') return;
+      var a = $('menu').querySelector('[data-seccion="' + s.id + '"]');
+      if (!a) return;
+      Promise.resolve(s.insignia(ctx)).then(function (n) {
+        var badge = a.querySelector('.insignia');
+        if (!n) { if (badge) badge.remove(); return; }
+        if (!badge) { badge = crear('span', 'insignia'); a.appendChild(badge); }
+        badge.textContent = String(n);
+      }).catch(function (e) { console.error('Insignia de ' + s.id, e); });
+    });
+  }
+
   // Lo que recibe cada sección para trabajar.
-  var ctx = { sb: sb, crear: crear, error: cajaError };
+  var ctx = { sb: sb, crear: crear, h: h, error: cajaError, actualizarInsignias: actualizarInsignias };
 
   function mostrarVista(nombre) {
     $('vista-cargando').hidden = nombre !== 'cargando';
@@ -132,11 +174,13 @@
     var menu = $('menu');
     menu.replaceChildren();
     SECCIONES.forEach(function (s) {
-      var a = crear('a', null, s.titulo);
+      var a = crear('a');
+      a.appendChild(crear('span', null, s.titulo));
       a.href = '#' + s.id;
       a.dataset.seccion = s.id;
       menu.appendChild(a);
     });
+    actualizarInsignias();
   }
 
   function navegar() {
