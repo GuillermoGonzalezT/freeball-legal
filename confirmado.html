@@ -1,0 +1,198 @@
+---
+layout: null
+permalink: /confirmado/
+---
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Se llega solo desde el correo de confirmación: no tiene sentido que la
+     indexe un buscador, y la URL puede llegar con tokens pegados. -->
+<meta name="robots" content="noindex">
+<title>Cuenta confirmada · FreeBall</title>
+<link rel="icon" href="{{ '/assets/icon-256.png' | relative_url }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+
+<!--
+  Destino de los correos de confirmación de Supabase (Authentication → URL
+  Configuration → Site URL). No está enlazada desde el índice: solo se llega
+  desde el correo.
+
+  Usa layout: null para no heredar el tema de GitHub Pages, que le pondría
+  arriba un encabezado de sitio que no corresponde acá.
+
+  Supabase agrega a la URL los tokens de la sesión recién creada
+  (#access_token=...&refresh_token=...). La página no los usa, así que el
+  script los borra de la barra de direcciones y del historial.
+
+  Si el enlace venció o ya se usó, Supabase manda #error=...; en ese caso se
+  muestra la otra tarjeta, porque decir "tu cuenta quedó confirmada" cuando no
+  es cierto sería peor que no decir nada.
+-->
+
+<style>
+  /* Paleta de src/lib/theme.js */
+  :root {
+    --navy:        #1A2233;
+    --texto-suave: #6B7A99;
+    --celeste:     #7EC8E3;
+    --celeste-cl:  #BEE8F5;
+    --celeste-os:  #5AAFC7;
+    --borde:       #DDE3ED;
+    --blanco:      #FFFFFF;
+    --ambar:       #8A6A00;
+    --ambar-cl:    #FFF3CC;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 32px 20px;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--navy);
+    background: linear-gradient(180deg, #8FD3EA 0%, var(--celeste-os) 100%);
+  }
+
+  .marca {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 800;
+    font-size: 26px;
+    letter-spacing: -0.5px;
+  }
+  .marca img {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    box-shadow: 0 4px 14px rgba(26, 34, 51, 0.18);
+  }
+
+  .tarjeta {
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 28px 32px;
+    text-align: center;
+    background: var(--blanco);
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(26, 34, 51, 0.18);
+    animation: entrar 0.5s ease-out both;
+  }
+
+  .estado {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+  .estado svg { width: 38px; height: 38px; }
+  .ok .estado    { background: var(--celeste-cl); color: var(--celeste-os); }
+  .error .estado { background: var(--ambar-cl);   color: var(--ambar); }
+
+  h1 {
+    margin: 0 0 12px;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+  }
+
+  p {
+    margin: 0 0 14px;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--texto-suave);
+  }
+  p strong { color: var(--navy); font-weight: 600; }
+
+  .cierre {
+    margin: 26px 0 0;
+    padding-top: 22px;
+    border-top: 1px solid var(--borde);
+    font-weight: 600;
+    color: var(--navy);
+  }
+
+  a { color: var(--celeste-os); font-weight: 600; }
+
+  footer {
+    font-size: 13px;
+    color: var(--navy);
+    opacity: 0.75;
+  }
+  footer a { color: var(--navy); }
+
+  [hidden] { display: none !important; }
+
+  @keyframes entrar {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tarjeta { animation: none; }
+  }
+</style>
+</head>
+
+<body>
+  <div class="marca">
+    <img src="{{ '/assets/icon-256.png' | relative_url }}" alt="">
+    FreeBall
+  </div>
+
+  <main id="ok" class="tarjeta ok">
+    <div class="estado" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h1>¡Tu cuenta quedó confirmada!</h1>
+    <p>Ya podés volver a <strong>FreeBall</strong> e iniciar sesión con tu correo y tu contraseña.</p>
+    <p class="cierre">Disfrutá de la app 🏐</p>
+  </main>
+
+  <main id="error" class="tarjeta error" hidden>
+    <div class="estado" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.5v6"/><path d="M12 17.5h.01"/></svg>
+    </div>
+    <h1>Este enlace ya no es válido</h1>
+    <p>Puede que ya lo hayas usado, o que haya vencido.</p>
+    <p><strong>Probá iniciar sesión en FreeBall:</strong> si tu cuenta ya estaba confirmada, vas a poder entrar normalmente.</p>
+    <p class="cierre">Si no podés, escribinos a <a href="mailto:appfreeball@gmail.com">appfreeball@gmail.com</a></p>
+  </main>
+
+  <footer>¿Dudas? <a href="mailto:appfreeball@gmail.com">appfreeball@gmail.com</a></footer>
+
+  <script>
+    (function () {
+      var hash = window.location.hash || '';
+
+      if (hash.indexOf('error') !== -1) {
+        document.getElementById('ok').hidden = true;
+        document.getElementById('error').hidden = false;
+        // En el caso de error el contacto ya está en la tarjeta.
+        document.querySelector('footer').hidden = true;
+      }
+
+      // Sacar los tokens de la URL sin recargar la página.
+      if (hash && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    })();
+  </script>
+</body>
+</html>
