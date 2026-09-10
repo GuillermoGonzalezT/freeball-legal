@@ -1,0 +1,245 @@
+---
+layout: null
+permalink: /nueva-contrasena/
+---
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Nueva contraseña · FreeBall</title>
+<link rel="icon" href="{{ '/assets/icon-256.png' | relative_url }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+
+<!--
+  Destino del correo de "olvidé mi contraseña". La app lo pide con
+  resetPasswordForEmail pasando esta URL como redirectTo, y tiene que figurar
+  en Authentication → URL Configuration → Redirect URLs.
+
+  Por qué una página y no la app: la app no tiene un scheme configurado, así
+  que un enlace no puede abrirla. Hacerlo exigiría configuración nueva y una
+  build. Esta página funciona en cualquier navegador.
+
+  Funciona porque el cliente de la app usa el flujo implicit (el valor por
+  defecto de supabase-js): el enlace trae la sesión de recuperación en la
+  propia URL. Con PKCE el código solo se podría canjear desde el teléfono que
+  lo pidió, y esta página no serviría.
+
+  La clave de abajo es la anon key, pública por diseño: viaja dentro de la app
+  que se instala cualquiera. Lo que protege los datos son las policies.
+-->
+
+<style>
+  :root {
+    --navy:        #1A2233;
+    --texto-suave: #6B7A99;
+    --celeste:     #7EC8E3;
+    --celeste-cl:  #BEE8F5;
+    --celeste-os:  #5AAFC7;
+    --borde:       #DDE3ED;
+    --blanco:      #FFFFFF;
+    --rojo:        #E05C5C;
+    --rojo-cl:     #FDECEC;
+    --ambar:       #8A6A00;
+    --ambar-cl:    #FFF3CC;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 28px; padding: 32px 20px;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--navy);
+    background: linear-gradient(180deg, #8FD3EA 0%, var(--celeste-os) 100%);
+  }
+  .marca { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 26px; letter-spacing: -0.5px; }
+  .marca img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 4px 14px rgba(26,34,51,.18); }
+  .tarjeta {
+    width: 100%; max-width: 420px; padding: 36px 28px 30px; text-align: center;
+    background: var(--blanco); border-radius: 24px; box-shadow: 0 20px 50px rgba(26,34,51,.18);
+    animation: entrar .5s ease-out both;
+  }
+  .estado { width: 72px; height: 72px; margin: 0 auto 20px; border-radius: 50%; display: grid; place-items: center; }
+  .estado svg { width: 36px; height: 36px; }
+  .ok .estado    { background: var(--celeste-cl); color: var(--celeste-os); }
+  .form .estado  { background: var(--celeste-cl); color: var(--celeste-os); }
+  .error .estado { background: var(--ambar-cl);   color: var(--ambar); }
+  h1 { margin: 0 0 10px; font-size: 24px; font-weight: 800; line-height: 1.25; letter-spacing: -.3px; }
+  p { margin: 0 0 14px; font-size: 15px; line-height: 1.6; color: var(--texto-suave); }
+  p strong { color: var(--navy); font-weight: 600; }
+  label { display: block; text-align: left; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+  input {
+    width: 100%; font: inherit; font-size: 15px; color: var(--navy);
+    padding: 12px 14px; border: 1.5px solid var(--borde); border-radius: 10px; background: #F7F9FC;
+  }
+  input:focus { outline: none; border-color: var(--celeste-os); background: var(--blanco); }
+  button {
+    width: 100%; margin-top: 22px; padding: 14px; border: 0; border-radius: 10px; cursor: pointer;
+    font: inherit; font-size: 15px; font-weight: 700; color: var(--blanco); background: var(--celeste-os);
+  }
+  button:disabled { opacity: .6; cursor: default; }
+  .aviso {
+    margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; text-align: left;
+    background: var(--rojo-cl); color: var(--rojo);
+  }
+  .ayuda { font-size: 12px; text-align: left; margin: 6px 0 0; }
+  .cierre { margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--borde); font-weight: 600; color: var(--navy); }
+  a { color: var(--celeste-os); font-weight: 600; }
+  footer { font-size: 13px; color: var(--navy); opacity: .75; }
+  footer a { color: var(--navy); }
+  [hidden] { display: none !important; }
+  @keyframes entrar { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .tarjeta { animation: none; } }
+</style>
+</head>
+
+<body>
+  <div class="marca">
+    <img src="{{ '/assets/icon-256.png' | relative_url }}" alt="">
+    FreeBall
+  </div>
+
+  <!-- Mientras supabase-js lee el enlace -->
+  <main id="cargando" class="tarjeta">
+    <p style="margin:0">Verificando el enlace…</p>
+  </main>
+
+  <!-- Formulario -->
+  <main id="form" class="tarjeta form" hidden>
+    <div class="estado" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+      </svg>
+    </div>
+    <h1>Elegí una contraseña nueva</h1>
+    <p>Después vas a poder iniciar sesión en la app con ella.</p>
+
+    <form id="formulario" novalidate>
+      <label for="pass">Contraseña nueva</label>
+      <input id="pass" type="password" autocomplete="new-password" required>
+      <p class="ayuda">Al menos 6 caracteres.</p>
+
+      <label for="pass2">Repetila</label>
+      <input id="pass2" type="password" autocomplete="new-password" required>
+
+      <div id="aviso" class="aviso" hidden></div>
+      <button id="boton" type="submit">Guardar contraseña</button>
+    </form>
+  </main>
+
+  <!-- Listo -->
+  <main id="ok" class="tarjeta ok" hidden>
+    <div class="estado" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h1>¡Listo, contraseña cambiada!</h1>
+    <p>Volvé a <strong>FreeBall</strong> e iniciá sesión con tu contraseña nueva.</p>
+    <p class="cierre">Ya podés cerrar esta página.</p>
+  </main>
+
+  <!-- Enlace vencido, usado, o página abierta sin enlace -->
+  <main id="error" class="tarjeta error" hidden>
+    <div class="estado" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.5v6"/><path d="M12 17.5h.01"/></svg>
+    </div>
+    <h1>Este enlace ya no es válido</h1>
+    <p>Puede que ya lo hayas usado, o que haya vencido.</p>
+    <p><strong>Pedí uno nuevo desde la app</strong>, en "¿Olvidaste tu contraseña?", y usalo apenas te llegue.</p>
+    <p class="cierre">Si sigue sin funcionar, escribinos a <a href="mailto:appfreeball@gmail.com">appfreeball@gmail.com</a></p>
+  </main>
+
+  <footer id="pie">¿Dudas? <a href="mailto:appfreeball@gmail.com">appfreeball@gmail.com</a></footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0/dist/umd/supabase.js"></script>
+  <script>
+    (function () {
+      var SUPABASE_URL = 'https://yviubkfezjllaarbshdo.supabase.co';
+      var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2aXVia2ZlempsbGFhcmJzaGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDI3NTAsImV4cCI6MjA5ODA3ODc1MH0.A1VRnVGQm1-Omw-jcJUUs2E7yj4e8wZytXd9qioVrZc';
+      var MINIMO = 6;   // el mismo que exige la pantalla de registro de la app
+
+      function mostrar(id) {
+        ['cargando', 'form', 'ok', 'error'].forEach(function (x) {
+          document.getElementById(x).hidden = (x !== id);
+        });
+        // En el caso de error el contacto ya está en la tarjeta.
+        document.getElementById('pie').hidden = (id === 'error');
+      }
+
+      // Sacar los tokens de la barra de direcciones y del historial. Se hace
+      // después de que supabase-js los leyó, no antes: si no, no los encuentra.
+      function limpiarUrl() {
+        if (window.location.hash && window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+
+      var hash = window.location.hash || '';
+
+      // Supabase manda #error=... cuando el enlace venció o ya se usó.
+      if (hash.indexOf('error') !== -1) {
+        limpiarUrl();
+        mostrar('error');
+        return;
+      }
+
+      // Sin persistencia: la sesión de recuperación vive solo en memoria,
+      // mientras la página está abierta, y no queda guardada en el navegador.
+      var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { detectSessionInUrl: true, persistSession: false, autoRefreshToken: false }
+      });
+
+      sb.auth.getSession().then(function (r) {
+        limpiarUrl();
+        mostrar(r.data && r.data.session ? 'form' : 'error');
+      });
+
+      var form   = document.getElementById('formulario');
+      var aviso  = document.getElementById('aviso');
+      var boton  = document.getElementById('boton');
+
+      function avisar(texto) {
+        aviso.textContent = texto;
+        aviso.hidden = !texto;
+      }
+
+      // Supabase responde en inglés; los casos esperables se traducen.
+      function traducir(mensaje) {
+        var m = (mensaje || '').toLowerCase();
+        if (m.indexOf('different from the old') !== -1) return 'La contraseña nueva tiene que ser distinta de la anterior.';
+        if (m.indexOf('at least') !== -1 || m.indexOf('weak') !== -1) return 'La contraseña es demasiado corta o demasiado fácil de adivinar.';
+        if (m.indexOf('session') !== -1 || m.indexOf('expired') !== -1) return 'El enlace venció. Pedí uno nuevo desde la app.';
+        return 'No se pudo guardar la contraseña. Probá de nuevo.';
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        avisar('');
+        var pass  = document.getElementById('pass').value;
+        var pass2 = document.getElementById('pass2').value;
+
+        if (pass.length < MINIMO) { avisar('La contraseña tiene que tener al menos ' + MINIMO + ' caracteres.'); return; }
+        if (pass !== pass2)       { avisar('Las dos contraseñas no coinciden.'); return; }
+
+        boton.disabled = true;
+        boton.textContent = 'Guardando…';
+
+        sb.auth.updateUser({ password: pass }).then(function (r) {
+          if (r.error) {
+            avisar(traducir(r.error.message));
+            boton.disabled = false;
+            boton.textContent = 'Guardar contraseña';
+            return;
+          }
+          // Cerrar la sesión de recuperación: ya cumplió su función, y no hay
+          // motivo para que quede una sesión abierta en este navegador.
+          sb.auth.signOut({ scope: 'local' }).finally(function () { mostrar('ok'); });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
