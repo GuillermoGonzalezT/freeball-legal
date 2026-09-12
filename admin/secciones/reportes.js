@@ -32,6 +32,7 @@
     team_message:     'Por un mensaje en el chat de un equipo',
     match_message:    'Por un mensaje en el chat de un partido',
     friendly_message: 'Por un mensaje en el chat de un amistoso',
+    team_name:        'Por el nombre del equipo',
   };
 
   var DECISIONES = {
@@ -43,9 +44,14 @@
                              ayuda: 'No puede entrar a la app durante un tiempo.',           color: 'naranja' },
     suspension_permanente: { etiqueta: 'Suspensión permanente', opcion: 'Suspensión permanente',
                              ayuda: 'No puede volver a entrar.',                             color: 'roja' },
+    renombrar:             { etiqueta: 'Renombrado',            opcion: 'Solo renombrar',
+                             ayuda: 'Se cambia el nombre del equipo, sin sancionar al capitán.', color: 'gris' },
+    renombre:              { etiqueta: 'Renombrado',             color: 'gris' },
     levantamiento:         { etiqueta: 'Suspensión levantada',  color: 'verde' },
   };
-  var ORDEN_DECISIONES = ['descartar', 'aviso', 'suspension', 'suspension_permanente'];
+  // En un reporte de equipo se puede renombrar; en uno de persona, no.
+  var ORDEN_DECISIONES        = ['descartar', 'aviso', 'suspension', 'suspension_permanente'];
+  var ORDEN_DECISIONES_EQUIPO = ['descartar', 'renombrar', 'aviso', 'suspension', 'suspension_permanente'];
 
   var DIAS = [1, 3, 7, 15, 30, 90];
   var DIAS_POR_DEFECTO = 7;
@@ -86,6 +92,23 @@
   // La base guarda la permanente como cien años: Auth no acepta infinito.
   function esPermanente(fin) {
     return new Date(fin).getFullYear() - new Date().getFullYear() > 50;
+  }
+
+  function plantillaEquipo(decision, dias, renombra) {
+    var cambio = renombra ? ' Le cambiamos el nombre.' : '';
+    if (decision === 'aviso') {
+      return 'Recibimos un reporte por el nombre de tu equipo: no cumple las normas de conducta de FreeBall.' +
+        cambio + ' Te pedimos que elijas nombres respetuosos. Si se repite, podemos suspender tu cuenta.';
+    }
+    if (decision === 'suspension') {
+      return 'Suspendimos tu cuenta por ' + dias + (dias === 1 ? ' día' : ' días') +
+        ' por el nombre de tu equipo, que va contra las normas de conducta de FreeBall.' + cambio;
+    }
+    if (decision === 'suspension_permanente') {
+      return 'Suspendimos tu cuenta de forma permanente por el nombre de tu equipo, que va contra las ' +
+        'normas de conducta de FreeBall.' + cambio;
+    }
+    return '';
   }
 
   function plantilla(decision, motivo, dias) {
@@ -233,6 +256,7 @@
                 text: pendientes ? hace(r.created_at) : fecha(r.resolved_at || r.created_at) })),
             h('div', { class: 'rep-item-motivo', text: MOTIVOS[r.reason] || r.reason }),
             h('div', { class: 'rep-item-pie' },
+              r.tipo === 'equipo' && pastilla(h, 'gris', 'Equipo'),
               h('span', { class: 'rep-suave', text: 'Reportado por ' + (r.reporter_name || 'Sin nombre') }),
               plazo && pastilla(h, plazo.color, plazo.texto),
               !pendientes && pastillaDecision(h, r.decision),
@@ -282,15 +306,22 @@
             ? h('p', { class: 'rep-cita', text: r.details })
             : h('p', { class: 'rep-suave', text: 'No agregó detalles.' })),
 
-        h('div', { class: 'rep-personas' }, tarjetaReportado(d.reportado), tarjetaDenunciante(d.denunciante)),
+        d.reporte.tipo === 'equipo'
+          ? h('div', { class: 'rep-personas' }, tarjetaEquipo(d.equipo), tarjetaDenunciante(d.denunciante))
+          : h('div', { class: 'rep-personas' }, tarjetaReportado(d.reportado), tarjetaDenunciante(d.denunciante)),
 
-        bloqueAntecedentes(d.antecedentes),
+        d.reporte.tipo === 'equipo' && bloqueNombres(d.equipo),
+        d.reporte.tipo === 'equipo' && tarjetaCapitan(d.capitan),
+
+        bloqueAntecedentes(d.antecedentes, d.reporte.tipo === 'equipo'),
         d.otros_reportes.length > 0 && bloqueOtros(d.otros_reportes),
 
         pendiente ? formularioDecision(d) : bloqueResolucion(r));
     }
 
     function tarjetaReportado(p) {
+      if (!p) return h('div', { class: 'tarjeta rep-persona' },
+        h('p', { class: 'rep-suave', text: 'La cuenta reportada ya no existe.' }));
       return h('div', { class: 'tarjeta rep-persona' },
         h('div', { class: 'rep-rol', text: 'Reportado' }),
         h('div', { class: 'rep-persona-cabeza' },
@@ -333,6 +364,61 @@
         boton);
     }
 
+    function tarjetaEquipo(t) {
+      if (!t) return h('div', { class: 'tarjeta rep-persona' },
+        h('p', { class: 'rep-suave', text: 'El equipo ya no existe.' }));
+      return h('div', { class: 'tarjeta rep-persona' },
+        h('div', { class: 'rep-rol', text: 'Equipo reportado' }),
+        h('div', { class: 'rep-persona-cabeza' },
+          avatar(h, null, t.name, true),
+          h('div', null,
+            h('strong', { text: t.name }),
+            h('div', { class: 'rep-suave', text: t.is_public ? 'Público' : 'Privado' }))),
+        datos(h, [
+          ['Creado', fecha(t.created_at)],
+          ['Integrantes', String(t.miembros)],
+          ['Descripción', t.description || '—'],
+        ]));
+    }
+
+    function tarjetaCapitan(p) {
+      if (!p) {
+        return h('div', { class: 'tarjeta rep-bloque' },
+          h('h3', { text: 'Capitán' }),
+          h('p', { class: 'rep-alerta',
+            text: 'El equipo no tiene capitán. Se puede renombrar o descartar, pero no hay a quién sancionar.' }));
+      }
+      return h('div', { class: 'tarjeta rep-bloque' },
+        h('h3', { text: 'Capitán (responde por el nombre)' }),
+        h('div', { class: 'rep-persona-cabeza' },
+          avatar(h, p.avatar_url, p.full_name, true),
+          h('div', null,
+            h('strong', { text: p.full_name || 'Sin nombre' }),
+            h('div', { class: 'rep-suave', text: p.email || '' }))),
+        datos(h, [['Cuenta creada', fecha(p.created_at)]]),
+        p.is_admin && h('p', { class: 'rep-alerta', text: 'Es administrador: no se lo puede sancionar desde el panel.' }),
+        p.suspendido_hasta && bloqueSuspendido(p));
+    }
+
+    // Todos los nombres que tuvo el equipo: es la prueba del reporte, porque
+    // el capitán puede cambiarlo apenas lo reportan.
+    function bloqueNombres(t) {
+      var lista = (t && t.nombres) || [];
+      return h('div', { class: 'tarjeta rep-bloque' },
+        h('h3', { text: 'Historial de nombres (' + lista.length + ')' }),
+        lista.length === 0
+          ? h('p', { class: 'rep-suave', text: 'Sin registros.' })
+          : h('ul', { class: 'rep-historial' }, lista.map(function (n, i) {
+              return h('li', null,
+                h('div', { class: 'rep-historial-fila' },
+                  h('strong', { text: n.name }),
+                  i === 0 && pastilla(h, 'verde', 'Actual'),
+                  h('span', { class: 'rep-suave', text: fechaHora(n.changed_at) })),
+                (n.changed_by_name || n.motivo) && h('div', { class: 'rep-suave',
+                  text: [n.changed_by_name, n.motivo].filter(Boolean).join(' · ') }));
+            })));
+    }
+
     function tarjetaDenunciante(p) {
       var descartados = p.reportes_descartados || 0;
       return h('div', { class: 'tarjeta rep-persona' },
@@ -351,9 +437,9 @@
           text: 'Varios de sus reportes anteriores se descartaron.' }));
     }
 
-    function bloqueAntecedentes(lista) {
+    function bloqueAntecedentes(lista, esEquipo) {
       return h('div', { class: 'tarjeta rep-bloque' },
-        h('h3', { text: 'Antecedentes del reportado' }),
+        h('h3', { text: esEquipo ? 'Antecedentes del capitán' : 'Antecedentes del reportado' }),
         lista.length === 0
           ? h('p', { class: 'rep-suave', text: 'Sin avisos ni sanciones anteriores.' })
           : h('ul', { class: 'rep-historial' }, lista.map(function (a) {
@@ -366,6 +452,7 @@
                 a.reason && h('div', { text: 'Motivo: ' + (MOTIVOS[a.reason] || a.reason) }),
                 a.kind === 'suspension' && a.ends_at && h('div', { text: 'Hasta el ' + fechaHora(a.ends_at) }),
                 quitado.length > 0 && h('div', { text: 'Se quitó ' + quitado.join(' y ') + '.' }),
+                a.team_new_name && h('div', { text: 'Equipo renombrado a "' + a.team_new_name + '".' }),
                 a.message && h('div', { class: 'rep-cita', text: a.message }),
                 a.internal_note && h('div', { class: 'rep-suave', text: 'Nota interna: ' + a.internal_note }));
             })));
@@ -398,6 +485,7 @@
             text: fechaHora(r.resolved_at) + (r.resolved_by_name ? ' · ' + r.resolved_by_name : '') })),
         a && a.kind === 'suspension' && a.ends_at && h('p', { text: 'Cuenta suspendida hasta el ' + fechaHora(a.ends_at) }),
         quitado.length > 0 && h('p', { text: 'Se quitó ' + quitado.join(' y ') + '.' }),
+        a && a.team_new_name && h('p', { text: 'El equipo pasó a llamarse "' + a.team_new_name + '".' }),
         a && a.message && [h('div', { class: 'rep-etiqueta', text: 'Mensaje para la persona' }),
                            h('p', { class: 'rep-cita', text: a.message })],
         r.resolution_note && [h('div', { class: 'rep-etiqueta', text: 'Nota interna' }),
@@ -408,18 +496,23 @@
 
     function formularioDecision(d) {
       var r = d.reporte;
-      var p = d.reportado;
+      var esEquipo = r.tipo === 'equipo';
+      // En un reporte de equipo, quien puede recibir la sanción es el capitán.
+      var p = esEquipo ? (d.capitan || {}) : d.reportado;
       var otrosPendientes = d.otros_reportes.filter(function (o) { return o.status === 'pending'; }).length;
       var previos = d.antecedentes.filter(function (a) { return a.kind !== 'levantamiento'; });
+      // Sin capitán no hay a quién sancionar: solo descartar o renombrar.
+      var sinCapitan = esEquipo && !d.capitan;
 
       var decision = null;
       var mensajeEditado = false;
 
-      var radios = ORDEN_DECISIONES.map(function (k) {
+      var radios = (esEquipo ? ORDEN_DECISIONES_EQUIPO : ORDEN_DECISIONES).map(function (k) {
         var info = DECISIONES[k];
+        var sancionadora = k !== 'descartar' && k !== 'renombrar';
         var input = h('input', { attrs: {
           type: 'radio', name: 'decision', value: k,
-          disabled: p.is_admin && k !== 'descartar',
+          disabled: (p.is_admin || sinCapitan) && sancionadora,
         } });
         input.addEventListener('change', function () { decision = k; actualizar(); });
         return h('label', { class: 'rep-opcion ' + info.color },
@@ -433,6 +526,16 @@
       selectDias.addEventListener('change', function () { if (!mensajeEditado) ponerPlantilla(); });
       var filaDias = h('div', { class: 'rep-campo' },
         h('label', { attrs: { for: 'rep-dias' }, text: 'Duración' }), selectDias);
+
+      var txtNombre = h('input', { attrs: { id: 'rep-nombre', type: 'text', maxlength: 40,
+        placeholder: 'Nombre nuevo del equipo' } });
+      txtNombre.addEventListener('input', function () { if (!mensajeEditado) ponerPlantilla(); });
+      var filaNombre = esEquipo && h('div', { class: 'rep-campo' },
+        h('label', { attrs: { for: 'rep-nombre' }, text: 'Nombre nuevo' }),
+        txtNombre,
+        h('p', { class: 'rep-suave rep-nota-campo',
+          text: 'Obligatorio si elegís "Solo renombrar"; opcional junto con un aviso o una suspensión. ' +
+                'El cambio queda en el historial del equipo.' }));
 
       var chkFoto = h('input', { attrs: { type: 'checkbox', disabled: !p.avatar_url } });
       var chkBio = h('input', { attrs: { type: 'checkbox', disabled: !p.bio } });
@@ -458,20 +561,24 @@
       var filaIncluir = otrosPendientes > 0 && h('label', { class: 'rep-check rep-incluir' }, chkIncluir,
         'Resolver también ' + (otrosPendientes === 1
           ? 'el otro reporte pendiente'
-          : 'los otros ' + otrosPendientes + ' reportes pendientes') + ' sobre esta persona, con la misma decisión');
+          : 'los otros ' + otrosPendientes + ' reportes pendientes') +
+        (esEquipo ? ' sobre este equipo' : ' sobre esta persona') + ', con la misma decisión');
 
       var error = h('div', { class: 'aviso', attrs: { hidden: true } });
       var boton = h('button', { attrs: { type: 'submit', disabled: true }, text: 'Confirmar decisión' });
 
       function ponerPlantilla() {
-        txtMensaje.value = plantilla(decision, r.reason, Number(selectDias.value));
+        txtMensaje.value = esEquipo
+          ? plantillaEquipo(decision, Number(selectDias.value), txtNombre.value.trim() !== '')
+          : plantilla(decision, r.reason, Number(selectDias.value));
       }
 
       function actualizar() {
-        var sanciona = decision && decision !== 'descartar';
+        var sanciona = decision && decision !== 'descartar' && decision !== 'renombrar';
         filaDias.hidden = decision !== 'suspension';
-        filaContenido.hidden = !sanciona;
+        filaContenido.hidden = !sanciona || esEquipo;
         filaMensaje.hidden = !sanciona;
+        if (filaNombre) filaNombre.hidden = !decision || decision === 'descartar';
         if (sanciona && !mensajeEditado) ponerPlantilla();
         boton.disabled = !decision;
         error.hidden = true;
@@ -480,11 +587,13 @@
       var form = h('form', { class: 'tarjeta rep-bloque rep-decision', attrs: { novalidate: true } },
         h('h3', { text: 'Decisión' }),
         h('p', { class: 'rep-suave', text: previos.length
-          ? 'Tiene ' + previos.length + (previos.length === 1 ? ' antecedente' : ' antecedentes') +
+          ? (esEquipo ? 'El capitán tiene ' : 'Tiene ') + previos.length + (previos.length === 1 ? ' antecedente' : ' antecedentes') +
             '. El último: ' + DECISIONES[previos[0].kind].etiqueta.toLowerCase() + ', el ' + fecha(previos[0].created_at) + '.'
           : 'Sin antecedentes. Para faltas leves, la primera vez corresponde un aviso.' }),
+        sinCapitan && h('p', { class: 'rep-alerta',
+          text: 'Sin capitán no hay a quién sancionar: solo se puede descartar o renombrar.' }),
         h('div', { class: 'rep-opciones' }, radios),
-        filaDias, filaContenido, filaMensaje, filaNota, filaIncluir,
+        filaNombre, filaDias, filaContenido, filaMensaje, filaNota, filaIncluir,
         error, boton);
 
       actualizar();
@@ -494,11 +603,18 @@
         error.hidden = true;
         if (!decision) return;
 
-        var sanciona = decision !== 'descartar';
+        var sanciona = decision !== 'descartar' && decision !== 'renombrar';
         var dias = decision === 'suspension' ? Number(selectDias.value) : null;
         var mensaje = txtMensaje.value.trim();
+        var nuevoNombre = esEquipo && decision !== 'descartar' ? txtNombre.value.trim() : '';
+
         if (decision === 'aviso' && !mensaje) {
           error.textContent = 'El aviso necesita un mensaje.';
+          error.hidden = false;
+          return;
+        }
+        if (decision === 'renombrar' && !nuevoNombre) {
+          error.textContent = 'Escribí el nombre nuevo del equipo.';
           error.hidden = false;
           return;
         }
@@ -506,12 +622,14 @@
         var nombre = p.full_name || 'esta persona';
         var partes = [{
           descartar: 'Descartar el reporte.',
+          renombrar: 'Cambiar el nombre del equipo, sin sancionar a nadie.',
           aviso: 'Registrar un aviso para ' + nombre + '.',
           suspension: 'Suspender a ' + nombre + ' por ' + dias + (dias === 1 ? ' día.' : ' días.'),
           suspension_permanente: 'Suspender a ' + nombre + ' DE FORMA PERMANENTE.',
         }[decision]];
-        if (sanciona && chkFoto.checked) partes.push('Quitar su foto de perfil.');
-        if (sanciona && chkBio.checked) partes.push('Borrar su descripción.');
+        if (nuevoNombre) partes.push('El equipo pasa a llamarse "' + nuevoNombre + '".');
+        if (sanciona && !esEquipo && chkFoto.checked) partes.push('Quitar su foto de perfil.');
+        if (sanciona && !esEquipo && chkBio.checked) partes.push('Borrar su descripción.');
         if (filaIncluir && chkIncluir.checked) {
           partes.push('Resolver también ' + (otrosPendientes === 1 ? 'el otro reporte pendiente.' : 'los otros ' + otrosPendientes + ' reportes pendientes.'));
         }
@@ -526,9 +644,10 @@
           _dias: dias,
           _mensaje: sanciona ? mensaje : null,
           _nota: txtNota.value,
-          _quitar_foto: sanciona && chkFoto.checked,
-          _borrar_bio: sanciona && chkBio.checked,
+          _quitar_foto: sanciona && !esEquipo && chkFoto.checked,
+          _borrar_bio: sanciona && !esEquipo && chkBio.checked,
           _incluir_pendientes: !!(filaIncluir && chkIncluir.checked),
+          _nuevo_nombre: nuevoNombre || null,
         });
         if (estado.cancelado) return;
 
