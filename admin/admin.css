@@ -371,3 +371,33 @@ textarea:focus, select:focus { outline: none; border-color: var(--celeste-os); b
 }
 .todo-icono:hover { background: var(--celeste-cl); color: var(--texto); }
 .todo-icono.activo { color: #E0A526; }
+
+/* ── Avisos ───────────────────────────────────────────────────────────── */
+
+.aviso-form { display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+.aviso-form .segmentos { margin-bottom: 0; align-self: flex-start; }
+.aviso-form > .rep-suave { margin: -6px 0 0; }
+.aviso-form button[type="submit"] { align-self: flex-start; }
+.aviso-contador { align-self: flex-end; font-size: 12px; }
+
+/* Imita la fila del buzón dentro de la app. */
+.aviso-vp {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%;
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--fondo); border: 1px dashed var(--borde);
+}
+.aviso-vp.vacia { opacity: .55; }
+.aviso-vp-icono  { font-size: 18px; line-height: 1.3; }
+.aviso-vp-titulo { font-weight: 700; }
+.aviso-vp-cuerpo { color: var(--texto); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.aviso-vp-fecha  { color: var(--texto-suave); font-size: 12px; margin-top: 4px; }
+
+.aviso-historial { margin-top: 28px; max-width: 720px; }
+.aviso-historial-titulo {
+  font-size: 12px; font-weight: 700; color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: .6px; margin: 0 0 8px 2px;
+}
+.aviso-historial .rep-historial {
+  background: var(--superficie); border: 1px solid var(--borde);
+  border-radius: 14px; padding: 0 16px;
+}
