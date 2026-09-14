@@ -99,6 +99,14 @@
   });
   function pesos(v) { return fmtPesos.format(Number(v) || 0); }
 
+  function bytes(v) {
+    var n = Number(v) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+
   function render(el, ctx) {
     var crear = ctx.crear;
     var graficas = [];
@@ -124,17 +132,6 @@
       bajada.textContent = 'Datos al ' + fechaCorta(resumen.hoy) + ', hora de Uruguay.';
 
       el.appendChild(tarjetasResumen(resumen));
-
-      var cajaIngresos = crear('div', null);
-      el.appendChild(cajaIngresos);
-      ctx.sb.rpc('admin_ingresos').then(function (ing) {
-        if (cancelado) return;
-        if (ing.error) {
-          cajaIngresos.appendChild(ctx.error('No se pudieron cargar los ingresos.', ing.error));
-          return;
-        }
-        cajaIngresos.appendChild(bloqueIngresos(ing.data));
-      });
 
       var rangos = armarRangos(resumen);
       if (!rangos.some(function (r) { return r.id === rangoElegido; })) rangoElegido = '7d';
@@ -165,6 +162,26 @@
 
       var zonaGraficas = crear('div', 'graficas');
       el.appendChild(zonaGraficas);
+
+      var cajaIngresos = crear('div', null);
+      el.appendChild(cajaIngresos);
+      ctx.sb.rpc('admin_ingresos').then(function (ing) {
+        if (cancelado) return;
+        cajaIngresos.appendChild(ing.error
+          ? ctx.error('No se pudieron cargar los ingresos.', ing.error)
+          : bloqueIngresos(ing.data));
+      });
+
+      var cajaExtra = crear('div', null);
+      el.appendChild(cajaExtra);
+      ctx.sb.rpc('admin_analytics_extra').then(function (ex) {
+        if (cancelado) return;
+        if (ex.error) {
+          cajaExtra.appendChild(ctx.error('No se pudieron cargar los datos de uso.', ex.error));
+          return;
+        }
+        bloquesDeUso(ex.data).forEach(function (b) { cajaExtra.appendChild(b); });
+      });
 
       // Si se cambia de período dos veces rápido, solo vale la última
       // respuesta; las anteriores pueden llegar después y se descartan.
@@ -268,6 +285,124 @@
             'totales no se recalculan si cambia el precio.'));
 
       return caja;
+    }
+
+    // ── Los bloques de uso ───────────────────────────────────────────────
+
+    function kpis(lista) {
+      var grilla = crear('div', 'kpis');
+      lista.forEach(function (x) {
+        var t = crear('div', 'tarjeta kpi');
+        t.appendChild(crear('div', 'kpi-titulo', x.titulo));
+        t.appendChild(crear('div', 'kpi-valor', x.valor));
+        t.appendChild(crear('div', 'kpi-detalle', x.detalle));
+        grilla.appendChild(t);
+      });
+      return grilla;
+    }
+
+    function pct(parte, total) {
+      if (!total) return '—';
+      return Math.round((parte / total) * 100) + '%';
+    }
+
+    function tabla(encabezados, filas) {
+      var t = crear('table', 'tabla');
+      var thead = crear('thead', null);
+      var trh = crear('tr', null);
+      encabezados.forEach(function (h) { trh.appendChild(crear('th', null, h)); });
+      thead.appendChild(trh);
+      t.appendChild(thead);
+      var tbody = crear('tbody', null);
+      filas.forEach(function (fila) {
+        var tr = crear('tr', null);
+        fila.forEach(function (celda) { tr.appendChild(crear('td', null, String(celda))); });
+        tbody.appendChild(tr);
+      });
+      t.appendChild(tbody);
+      return t;
+    }
+
+    function bloquesDeUso(d) {
+      var out = [];
+
+      // Retención y repetición van juntas: las dos responden "¿volvió?".
+      var r = d.retencion, rep2 = d.repiten;
+      var caja1 = crear('div', null);
+      caja1.appendChild(crear('h2', 'seccion-titulo', 'Volver'));
+      caja1.appendChild(kpis([
+        { titulo: 'Siguen activos', valor: pct(r.activas, r.veteranas),
+          detalle: r.activas + ' de ' + r.veteranas + ' cuentas de más de una semana' },
+        { titulo: 'Jugaron otra vez', valor: pct(rep2.jugaron_dos, rep2.jugaron_una),
+          detalle: rep2.jugaron_dos + ' de ' + rep2.jugaron_una + ' que jugaron alguna vez' },
+      ]));
+      caja1.appendChild(crear('p', 'bajada',
+        'Activo es haber hecho algo —anotarse a un partido, crear uno, escribir en un chat—, ' +
+        'no haber abierto la app: eso no se registra.'));
+      out.push(caja1);
+
+      // Embudo.
+      var e = d.embudo;
+      var caja2 = crear('div', null);
+      caja2.appendChild(crear('h2', 'seccion-titulo', 'De crear un partido a jugarlo'));
+      caja2.appendChild(kpis([
+        { titulo: 'Creados',     valor: fmtNum.format(e.creados),     detalle: 'Desde el inicio' },
+        { titulo: 'Con el mínimo', valor: fmtNum.format(e.con_minimo), detalle: pct(e.con_minimo, e.creados) + ' de los creados' },
+        { titulo: 'Confirmados', valor: fmtNum.format(e.confirmados), detalle: pct(e.confirmados, e.creados) + ' de los creados' },
+        { titulo: 'Jugados',     valor: fmtNum.format(e.jugados),     detalle: pct(e.jugados, e.creados) + ' de los creados' },
+        { titulo: 'Se cayeron',  valor: fmtNum.format(e.caidos),      detalle: 'Pasó la fecha sin jugarse' },
+      ]));
+      out.push(caja2);
+
+      // Moderación.
+      var m = d.moderacion;
+      var caja3 = crear('div', null);
+      caja3.appendChild(crear('h2', 'seccion-titulo', 'Moderación'));
+      caja3.appendChild(kpis([
+        { titulo: 'Pendientes', valor: fmtNum.format(m.pendientes),
+          detalle: m.pendientes ? 'El más viejo hace ' + m.mas_viejo_hs + ' h' : 'Nada esperando' },
+        { titulo: 'Demora media', valor: m.resueltos ? m.demora_media_hs + ' h' : '—',
+          detalle: 'Los términos prometen 48 h' },
+        { titulo: 'Fuera de plazo', valor: fmtNum.format(m.fuera_de_plazo),
+          detalle: 'Resueltos después de las 48 h' },
+        { titulo: 'Resueltos', valor: fmtNum.format(m.resueltos), detalle: 'Desde el inicio' },
+      ]));
+      out.push(caja3);
+
+      // Dónde se juega.
+      var caja4 = crear('div', null);
+      caja4.appendChild(crear('h2', 'seccion-titulo', 'Dónde se juega'));
+      if (!d.departamentos.length) {
+        caja4.appendChild(crear('p', 'bajada', 'Todavía no hay partidos.'));
+      } else {
+        caja4.appendChild(tabla(['Departamento', 'Partidos', 'Jugados'],
+          d.departamentos.map(function (x) { return [x.nombre, x.partidos, x.jugados]; })));
+      }
+      if (d.canchas.length) {
+        caja4.appendChild(crear('h3', 'sub-titulo', 'Canchas más usadas'));
+        caja4.appendChild(tabla(['Cancha', 'Departamento', 'Partidos'],
+          d.canchas.map(function (x) { return [x.nombre, x.departamento, x.partidos]; })));
+      }
+      out.push(caja4);
+
+      // Supabase.
+      var sp = d.supabase;
+      var caja5 = crear('div', null);
+      caja5.appendChild(crear('h2', 'seccion-titulo', 'Supabase'));
+      caja5.appendChild(kpis([
+        { titulo: 'Base de datos', valor: bytes(sp.base_bytes),
+          detalle: pct(sp.base_bytes, 500 * 1024 * 1024) + ' de los 500 MB del plan gratis' },
+        { titulo: 'Archivos', valor: bytes(sp.storage_bytes),
+          detalle: sp.archivos + ' archivos · ' + pct(sp.storage_bytes, 1024 * 1024 * 1024) + ' de 1 GB' },
+      ]));
+      caja5.appendChild(crear('h3', 'sub-titulo', 'Las tablas más pesadas'));
+      caja5.appendChild(tabla(['Tabla', 'Tamaño', 'Filas (aprox.)'],
+        sp.tablas.map(function (x) { return [x.tabla, bytes(x.bytes), fmtNum.format(x.filas)]; })));
+      caja5.appendChild(crear('p', 'bajada',
+        'El ancho de banda no se puede consultar desde la base: está solo en el panel de Supabase.'));
+      out.push(caja5);
+
+      return out;
     }
 
     function tarjetaGrafica(o) {

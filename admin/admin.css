@@ -437,3 +437,24 @@ select.cancha-input { min-width: 0; }
   font-size: 16px; font-weight: 800; letter-spacing: -.2px;
   margin: 28px 0 12px; color: var(--texto);
 }
+
+.sub-titulo {
+  font-size: 13px; font-weight: 700; color: var(--texto-suave);
+  margin: 20px 0 8px;
+}
+
+/* Tablas de Analytics: pocas columnas, números a la derecha. */
+.tabla {
+  width: 100%; border-collapse: collapse;
+  background: var(--superficie);
+  border: 1px solid var(--borde); border-radius: 12px;
+  overflow: hidden; font-size: 14px;
+}
+.tabla th, .tabla td { padding: 9px 12px; text-align: left; }
+.tabla th {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--texto-suave); font-weight: 700;
+  border-bottom: 1px solid var(--borde);
+}
+.tabla tbody tr + tr td { border-top: 1px solid var(--borde); }
+.tabla th:not(:first-child), .tabla td:not(:first-child) { text-align: right; }
