@@ -401,3 +401,28 @@ textarea:focus, select:focus { outline: none; border-color: var(--celeste-os); b
   background: var(--superficie); border: 1px solid var(--borde);
   border-radius: 14px; padding: 0 16px;
 }
+
+/* ── Canchas propuestas ──────────────────────────────────────────────── */
+
+/* input, textarea y select ya tienen estilo global: acá solo el ancho y el
+   espaciado del formulario de la ficha. */
+.cancha-campo { display: block; margin-bottom: 12px; }
+.cancha-etiqueta {
+  display: block; font-size: 12px; color: var(--texto-suave); margin-bottom: 4px;
+}
+.cancha-input { width: 100%; }
+select.cancha-input { min-width: 0; }
+
+/* Dos campos cortos en la misma línea: latitud y longitud, tipo y depto. */
+.cancha-fila { display: flex; gap: 12px; }
+.cancha-fila > * { flex: 1; min-width: 0; }
+
+.cancha-enlace { display: inline-block; margin-bottom: 12px; font-size: 13px; }
+
+.cancha-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.cancha-foto {
+  width: 120px; height: 90px; object-fit: cover;
+  border-radius: 8px; border: 1px solid var(--borde); display: block;
+}
+
+.cancha-acciones { display: flex; gap: 8px; margin: 12px 0; }
