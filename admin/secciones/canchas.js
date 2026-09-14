@@ -255,6 +255,17 @@
             h('span', { class: 'rep-suave', text: ' — ' + m.ayuda }))));
       });
 
+      // Avisar es lo normal; el silencio se pide. Sirve cuando alguien manda
+      // la misma cancha tres veces: se resuelve una avisando y las repetidas
+      // se descartan calladas, para no mandarle tres avisos por lo mismo.
+      var avisar = h('input', { attrs: { type: 'checkbox', id: 'cancha-avisar' } });
+      avisar.checked = true;
+      var avisarFila = h('label', { class: 'rep-opcion cancha-avisar' }, avisar,
+        h('span', null,
+          h('strong', { text: 'Avisarle a quien la propuso' }),
+          h('span', { class: 'rep-suave',
+            text: ' — sin esto, se resuelve en silencio y no le llega nada.' })));
+
       var botonAceptar = h('button', { attrs: { type: 'button' }, text: 'Aceptar y publicar',
         on: { click: aceptar } });
       var botonRechazar = h('button', { class: 'boton-secundario', attrs: { type: 'button', disabled: true },
@@ -273,12 +284,14 @@
           return;
         }
 
-        if (!window.confirm('Se publica "' + nombre + '" en el mapa y le llega el aviso a quien la propuso.')) return;
+        if (!window.confirm('Se publica "' + nombre + '" en el mapa' +
+            (avisar.checked ? ' y le llega el aviso a quien la propuso.' : ', sin avisarle a nadie.'))) return;
 
         estado.enviando = true;
         botonAceptar.disabled = true;
         var res = await ctx.sb.rpc('admin_aprobar_cancha', {
           _court_id: c.id,
+          _notificar: avisar.checked,
           _campos: {
             name: nombre,
             address: campos.address.value.trim(),
@@ -305,13 +318,15 @@
           window.alert('No se pudo aceptar: ' + res.error.message);
           return;
         }
-        mostrarOk('"' + nombre + '" ya está en el mapa.');
+        mostrarOk('"' + nombre + '" ya está en el mapa' + (avisar.checked ? '.' : ', sin aviso.'));
         terminar();
       }
 
       async function rechazar() {
         if (estado.enviando || !motivoElegido) return;
-        if (!window.confirm('Se rechaza la propuesta y le llega el aviso con el motivo.')) return;
+        if (!window.confirm(avisar.checked
+            ? 'Se rechaza la propuesta y le llega el aviso con el motivo.'
+            : 'Se rechaza la propuesta en silencio: no le llega nada.')) return;
 
         estado.enviando = true;
         botonRechazar.disabled = true;
@@ -319,6 +334,7 @@
           _court_id: c.id,
           _motivo: motivoElegido,
           _detalle: detalle.value.trim() || null,
+          _notificar: avisar.checked,
         });
         estado.enviando = false;
         botonRechazar.disabled = false;
@@ -328,7 +344,7 @@
           window.alert('No se pudo rechazar: ' + res.error.message);
           return;
         }
-        mostrarOk('Propuesta rechazada.');
+        mostrarOk(avisar.checked ? 'Propuesta rechazada.' : 'Propuesta rechazada, sin aviso.');
         terminar();
       }
 
@@ -340,6 +356,7 @@
 
       return h('div', { class: 'rep-bloque' },
         h('h3', { text: 'Decisión' }),
+        avisarFila,
         h('div', { class: 'cancha-acciones' }, botonAceptar),
         h('p', { class: 'rep-suave', text: 'O rechazarla, eligiendo un motivo:' }),
         opciones,

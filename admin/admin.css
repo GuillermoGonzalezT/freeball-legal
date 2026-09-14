@@ -426,3 +426,7 @@ select.cancha-input { min-width: 0; }
 }
 
 .cancha-acciones { display: flex; gap: 8px; margin: 12px 0; }
+
+/* El interruptor de avisar va separado de los motivos de rechazo: vale para
+   las dos decisiones, no solo para el rechazo. */
+.cancha-avisar { margin-bottom: 14px; }
