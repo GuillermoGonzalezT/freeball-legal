@@ -94,6 +94,11 @@
 
   // ── Render ──────────────────────────────────────────────────────────────
 
+  var fmtPesos = new Intl.NumberFormat('es-UY', {
+    style: 'currency', currency: 'UYU', maximumFractionDigits: 0,
+  });
+  function pesos(v) { return fmtPesos.format(Number(v) || 0); }
+
   function render(el, ctx) {
     var crear = ctx.crear;
     var graficas = [];
@@ -119,6 +124,17 @@
       bajada.textContent = 'Datos al ' + fechaCorta(resumen.hoy) + ', hora de Uruguay.';
 
       el.appendChild(tarjetasResumen(resumen));
+
+      var cajaIngresos = crear('div', null);
+      el.appendChild(cajaIngresos);
+      ctx.sb.rpc('admin_ingresos').then(function (ing) {
+        if (cancelado) return;
+        if (ing.error) {
+          cajaIngresos.appendChild(ctx.error('No se pudieron cargar los ingresos.', ing.error));
+          return;
+        }
+        cajaIngresos.appendChild(bloqueIngresos(ing.data));
+      });
 
       var rangos = armarRangos(resumen);
       if (!rangos.some(function (r) { return r.id === rangoElegido; })) rangoElegido = '7d';
@@ -214,6 +230,44 @@
         grilla.appendChild(t);
       });
       return grilla;
+    }
+
+    // Ingresos. Dos cosas distintas que conviene no mezclar: lo que entraría
+    // por mes al ritmo de hoy, que es una proyección, y lo que se cobró de
+    // verdad, que sale del historial de cobros.
+    function bloqueIngresos(d) {
+      var caja = crear('div', null);
+      caja.appendChild(crear('h2', 'seccion-titulo', 'Ingresos'));
+
+      var datos = [
+        { titulo: 'Suscripciones pagas', valor: fmtNum.format(d.activos),
+          detalle: 'Sin contar honorarios ni Pioneros' },
+        { titulo: 'Por mes, al ritmo de hoy', valor: pesos(d.ritmo_neto),
+          detalle: 'Neto, después del ' + d.comision_pct + '% de la tienda' },
+        { titulo: 'Cobrado este mes', valor: pesos(d.mes_neto),
+          detalle: 'Neto, lo que entró de verdad' },
+        { titulo: 'Cobrado desde el inicio', valor: pesos(d.total_neto),
+          detalle: d.cobros + (d.cobros === 1 ? ' cobro' : ' cobros') },
+      ];
+
+      var grilla = crear('div', 'kpis');
+      datos.forEach(function (x) {
+        var t = crear('div', 'tarjeta kpi');
+        t.appendChild(crear('div', 'kpi-titulo', x.titulo));
+        t.appendChild(crear('div', 'kpi-valor', x.valor));
+        t.appendChild(crear('div', 'kpi-detalle', x.detalle));
+        grilla.appendChild(t);
+      });
+      caja.appendChild(grilla);
+
+      caja.appendChild(crear('p', 'bajada',
+        d.cobros === 0
+          ? 'Todavía no hay cobros registrados: las suscripciones no están en venta. ' +
+            'Las dos tarjetas de la derecha van a quedar en cero hasta que lo estén.'
+          : 'Cada cobro guarda su propio monto y su propia comisión, así que los ' +
+            'totales no se recalculan si cambia el precio.'));
+
+      return caja;
     }
 
     function tarjetaGrafica(o) {
