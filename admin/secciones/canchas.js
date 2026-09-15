@@ -52,7 +52,7 @@
 
   function render(el, ctx) {
     var h = ctx.h;
-    var estado = { lista: [], seleccionada: null, departamentos: [], cancelado: false, enviando: false };
+    var estado = { lista: [], seleccionada: null, cancelado: false, enviando: false };
     var temporizadorAviso = null;
 
     el.appendChild(h('h1', { text: 'Canchas propuestas' }));
@@ -66,7 +66,6 @@
     var colDetalle = h('div', { class: 'rep-detalle' });
     el.appendChild(h('div', { class: 'rep-layout' }, colLista, colDetalle));
 
-    cargarDepartamentos();
     cargarLista();
 
     function mostrarOk(texto) {
@@ -74,13 +73,6 @@
       avisoOk.hidden = false;
       clearTimeout(temporizadorAviso);
       temporizadorAviso = setTimeout(function () { avisoOk.hidden = true; }, 5000);
-    }
-
-    // Los departamentos se piden una sola vez: son fijos y son diecinueve.
-    async function cargarDepartamentos() {
-      var res = await ctx.sb.from('departments').select('id, name').order('name');
-      if (estado.cancelado || res.error) return;
-      estado.departamentos = res.data || [];
     }
 
     // ── La cola ───────────────────────────────────────────────────────────
@@ -180,9 +172,6 @@
       var tipos = [{ valor: '', etiqueta: 'Sin definir' }].concat(
         Object.keys(TIPOS).map(function (k) { return { valor: k, etiqueta: TIPOS[k] }; }));
 
-      var deptos = [{ valor: '', etiqueta: 'Sin departamento' }].concat(
-        estado.departamentos.map(function (d) { return { valor: String(d.id), etiqueta: d.name }; }));
-
       var mapa = (c.latitude != null && c.longitude != null)
         ? 'https://www.google.com/maps/search/?api=1&query=' + c.latitude + ',' + c.longitude
         : null;
@@ -206,7 +195,13 @@
             attrs: { href: mapa, target: '_blank', rel: 'noopener noreferrer' } }),
           h('div', { class: 'cancha-fila' },
             seleccion('court_type', 'Tipo', c.court_type, tipos),
-            seleccion('department_id', 'Departamento', c.department_id, deptos)),
+            h('div', { class: 'cancha-campo' },
+              h('span', { class: 'cancha-etiqueta', text: 'Departamento' }),
+              h('div', { class: 'cancha-solo-lectura' + (c.department_name ? '' : ' vacio'),
+                text: c.department_name || 'Ninguno: el punto parece estar fuera de Uruguay' }))),
+          h('p', { class: 'cancha-ayuda',
+            text: 'El departamento sale de la ubicación y se vuelve a calcular al aceptar. ' +
+                  'Si está mal, lo que hay que corregir es el punto.' }),
           texto('surface_detail', 'Detalle de la superficie', c.surface_detail),
           texto('description', 'Descripción', c.description, { largo: true }),
           texto('notes', 'Notas', c.notes, { largo: true })),
@@ -298,7 +293,6 @@
             latitude: lat,
             longitude: lon,
             court_type: campos.court_type.value,
-            department_id: campos.department_id.value,
             surface_detail: campos.surface_detail.value.trim(),
             description: campos.description.value.trim(),
             notes: campos.notes.value.trim(),

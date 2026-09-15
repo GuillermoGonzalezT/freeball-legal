@@ -458,3 +458,11 @@ select.cancha-input { min-width: 0; }
 }
 .tabla tbody tr + tr td { border-top: 1px solid var(--borde); }
 .tabla th:not(:first-child), .tabla td:not(:first-child) { text-align: right; }
+
+/* El departamento en la ficha de una cancha: se ve, pero no se elige. */
+.cancha-solo-lectura {
+  padding: 11px 13px; border: 1.5px dashed var(--borde); border-radius: 10px;
+  color: var(--texto); background: var(--fondo); font-size: 14px;
+}
+.cancha-solo-lectura.vacio { color: var(--rojo); border-color: var(--rojo); background: var(--rojo-cl); }
+.cancha-ayuda { font-size: 12px; color: var(--texto-suave); margin: -4px 0 12px; }
