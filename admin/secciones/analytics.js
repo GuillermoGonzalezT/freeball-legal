@@ -94,10 +94,13 @@
 
   // ── Render ──────────────────────────────────────────────────────────────
 
-  var fmtPesos = new Intl.NumberFormat('es-UY', {
-    style: 'currency', currency: 'UYU', maximumFractionDigits: 0,
+  // Las tiendas cobran y pagan en dólares: los ingresos se muestran en USD,
+  // con centavos porque los precios son del tipo 2,99.
+  var fmtDolares = new Intl.NumberFormat('es-UY', {
+    style: 'currency', currency: 'USD', currencyDisplay: 'code',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
-  function pesos(v) { return fmtPesos.format(Number(v) || 0); }
+  function dolares(v) { return fmtDolares.format(Number(v) || 0); }
 
   function bytes(v) {
     var n = Number(v) || 0;
@@ -259,11 +262,11 @@
       var datos = [
         { titulo: 'Suscripciones pagas', valor: fmtNum.format(d.activos),
           detalle: 'Sin contar honorarios ni Pioneros' },
-        { titulo: 'Por mes, al ritmo de hoy', valor: pesos(d.ritmo_neto),
-          detalle: 'Neto, después del ' + d.comision_pct + '% de la tienda' },
-        { titulo: 'Cobrado este mes', valor: pesos(d.mes_neto),
+        { titulo: 'Por mes, al ritmo de hoy', valor: dolares(d.ritmo_neto),
+          detalle: 'Neto, según el último cobro de cada uno; el anual cuenta 1/12' },
+        { titulo: 'Cobrado este mes', valor: dolares(d.mes_neto),
           detalle: 'Neto, lo que entró de verdad' },
-        { titulo: 'Cobrado desde el inicio', valor: pesos(d.total_neto),
+        { titulo: 'Cobrado desde el inicio', valor: dolares(d.total_neto),
           detalle: d.cobros + (d.cobros === 1 ? ' cobro' : ' cobros') },
       ];
 
@@ -279,10 +282,22 @@
 
       caja.appendChild(crear('p', 'bajada',
         d.cobros === 0
-          ? 'Todavía no hay cobros registrados: las suscripciones no están en venta. ' +
-            'Las dos tarjetas de la derecha van a quedar en cero hasta que lo estén.'
-          : 'Cada cobro guarda su propio monto y su propia comisión, así que los ' +
-            'totales no se recalculan si cambia el precio.'));
+          ? 'Todavía no hay cobros registrados. Se anotan solos cuando alguien paga ' +
+            'en la tienda; las compras de prueba (sandbox) no cuentan.'
+          : 'Montos en dólares, netos de la comisión y los impuestos de la tienda. ' +
+            'Cada cobro guarda su propio monto, así que los totales no se ' +
+            'recalculan si cambia el precio.'));
+
+      // Suscriptores activos sin ningún cobro anotado: no entran en la
+      // proyección. Se avisa para que el número de arriba no engañe.
+      if (d.sin_cobro > 0) {
+        caja.appendChild(crear('p', 'bajada',
+          d.sin_cobro + (d.sin_cobro === 1
+            ? ' suscripción activa no tiene cobro anotado'
+            : ' suscripciones activas no tienen cobro anotado') +
+          ' (compra de prueba, o un aviso de RevenueCat que no llegó) y no ' +
+          'cuenta en "Por mes".'));
+      }
 
       return caja;
     }
