@@ -5,7 +5,7 @@ permalink: /privacidad/
 
 # Política de Privacidad de FreeBall
 
-**Última actualización:** 11 de septiembre de 2026
+**Última actualización:** 18 de septiembre de 2026
 
 Esta política explica qué datos recoge FreeBall, para qué los usa y qué podés
 hacer con ellos.
@@ -105,7 +105,8 @@ Solo con los proveedores necesarios para que la app funcione:
 |---|---|---|
 | **Supabase** | Base de datos, autenticación y almacenamiento de fotos | Los datos de tu cuenta y de la app |
 | **Expo** | Envío de notificaciones push | El identificador de tu dispositivo y el texto de la notificación |
-| **Apple / Google** | Distribución de la app, entrega de las notificaciones push y, en el futuro, cobro de suscripciones | El identificador de tu dispositivo y el texto de las notificaciones; los datos de la compra, que administran ellos |
+| **Apple / Google** | Distribución de la app, entrega de las notificaciones push y cobro de las suscripciones | El identificador de tu dispositivo y el texto de las notificaciones; los datos de pago, que administran ellos y nunca llegan a nosotros |
+| **RevenueCat** | Gestión de las suscripciones: confirmar cada compra con Apple o Google y avisarnos si está activa | El identificador de tu cuenta de FreeBall y los datos de tus compras (qué plan, cuándo, si se renueva). No recibe tu nombre, tu correo ni tus datos de pago |
 
 También podemos entregar información si una autoridad competente lo requiere
 legalmente.
