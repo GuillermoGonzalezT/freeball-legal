@@ -214,6 +214,22 @@
     if (!$('vista-panel').hidden) navegar();
   });
 
+  // En el celular la ficha queda debajo de la lista (Reportes, Canchas,
+  // Fotos): al tocar un ítem se baja hasta ella, que si no hay que adivinar
+  // que apareció más abajo. La ficha que se abre sola al cargar no pasa por
+  // acá, porque no es un toque.
+  var esCelular = window.matchMedia('(max-width: 720px)');
+  document.addEventListener('click', function (ev) {
+    if (!esCelular.matches || !ev.target.closest) return;
+    var item = ev.target.closest('.rep-item');
+    if (!item) return;
+    var layout = item.closest('.rep-layout');
+    var ficha = layout && layout.children[1];
+    if (ficha) setTimeout(function () {
+      ficha.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  });
+
   // ── Eventos ─────────────────────────────────────────────────────────────
 
   $('form-login').addEventListener('submit', async function (ev) {
