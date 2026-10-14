@@ -136,6 +136,7 @@
 
     function ficha(c) {
       var campos = {};
+      var selector = selectorFotos(c);
 
       function texto(clave, etiqueta, valor, opciones) {
         var o = opciones || {};
@@ -182,7 +183,7 @@
           h('span', { class: 'rep-item-pie',
             text: 'Propuesta por ' + (c.submitter_name || 'una cuenta borrada') + ' · ' + fecha(c.created_at) })),
 
-        fotos(c.photos),
+        selector.nodo,
 
         h('div', { class: 'rep-bloque' },
           h('h3', { text: 'Datos' }),
@@ -216,23 +217,84 @@
           texto('rental_contact', 'Contacto para alquilar', c.rental_contact),
           texto('contact_instagram', 'Instagram', c.contact_instagram)),
 
-        decision(c, campos));
+        decision(c, campos, selector));
     }
 
-    function fotos(urls) {
-      if (!urls || !urls.length) {
-        return h('p', { class: 'rep-suave', text: 'La propuesta no trae fotos.' });
+    // Las fotos de la propuesta: arrancan todas marcadas, en el orden en que
+    // llegaron. Desmarcar una la descarta; volver a marcarla la pone al final.
+    // El número es el lugar en la cancha: la primera es la portada del mapa.
+    //
+    // elegidas() devuelve null si la base todavía no manda los ids (migración
+    // 20261014140000 sin correr): en ese caso se publican todas, como antes.
+    function selectorFotos(c) {
+      var lista = c.fotos;
+      if (!lista) {
+        var urls = c.photos || [];
+        return {
+          elegidas: function () { return null; },
+          total: urls.length,
+          nodo: !urls.length
+            ? h('p', { class: 'rep-suave', text: 'La propuesta no trae fotos.' })
+            : h('div', { class: 'cancha-fotos' }, urls.map(function (u) {
+                return h('a', { attrs: { href: u, target: '_blank', rel: 'noopener noreferrer' } },
+                  h('img', { class: 'cancha-foto', attrs: { src: u, alt: '', loading: 'lazy' } }));
+              })),
+        };
       }
-      return h('div', { class: 'cancha-fotos' },
-        urls.map(function (u) {
-          return h('a', { attrs: { href: u, target: '_blank', rel: 'noopener noreferrer' } },
-            h('img', { class: 'cancha-foto', attrs: { src: u, alt: '', loading: 'lazy' } }));
-        }));
+      if (!lista.length) {
+        return { elegidas: function () { return []; }, total: 0,
+          nodo: h('p', { class: 'rep-suave', text: 'La propuesta no trae fotos.' }) };
+      }
+
+      var elegidas = lista.map(function (f) { return f.id; });
+      var numeros = {};
+      var contador = h('span', { class: 'pastilla gris' });
+
+      function actualizar() {
+        contador.textContent = elegidas.length === lista.length
+          ? 'Se publican todas'
+          : elegidas.length === 0 ? 'No se publica ninguna'
+          : 'Se publican ' + elegidas.length + ' de ' + lista.length;
+        Object.keys(numeros).forEach(function (id) {
+          var i = elegidas.indexOf(id);
+          numeros[id].textContent = i >= 0 ? (i === 0 ? '1 · portada' : String(i + 1)) : '';
+        });
+      }
+
+      var grilla = h('div', { class: 'foto-elegibles' }, lista.map(function (f) {
+        var marca = h('input', { attrs: { type: 'checkbox' } });
+        marca.checked = true;
+        var numero = h('span', { class: 'foto-orden' });
+        numeros[f.id] = numero;
+        marca.addEventListener('change', function () {
+          if (marca.checked) elegidas.push(f.id);
+          else elegidas = elegidas.filter(function (x) { return x !== f.id; });
+          actualizar();
+        });
+        return h('div', { class: 'foto-elegible' },
+          h('label', { class: 'foto-elegible-marco' },
+            h('img', { class: 'cancha-foto', attrs: { src: f.url, alt: '', loading: 'lazy' } }),
+            h('span', { class: 'foto-elegible-pie' }, marca, h('span', { text: 'Publicar' }), numero)),
+          h('a', { class: 'foto-ampliar', text: 'Ver grande',
+            attrs: { href: f.url, target: '_blank', rel: 'noopener noreferrer' } }));
+      }));
+
+      actualizar();
+
+      return {
+        elegidas: function () { return elegidas.slice(); },
+        total: lista.length,
+        nodo: h('div', { class: 'rep-bloque' },
+          h('div', { class: 'rep-ficha-cabecera' }, h('h3', { text: 'Fotos' }), contador),
+          h('p', { class: 'rep-suave',
+            text: 'Desmarcá las que no van. El orden en que quedan marcadas es el orden en la cancha.' }),
+          grilla),
+      };
     }
 
     // ── Aceptar o rechazar ────────────────────────────────────────────────
 
-    function decision(c, campos) {
+    function decision(c, campos, selector) {
       var motivoElegido = null;
       var detalle = h('textarea', { class: 'cancha-input',
         attrs: { rows: 3, placeholder: 'Información adicional para quien la propuso (opcional)' } });
@@ -279,12 +341,28 @@
           return;
         }
 
+        // La misma regla que la app exige al proponer. Acá se puede seguir
+        // igual: puede ser una propuesta vieja, o un dato que se va a sumar.
+        var pideContacto = campos.is_rentable.checked || campos.has_scheduled_activity.checked;
+        if (pideContacto && !campos.rental_contact.value.trim() && !campos.contact_instagram.value.trim() &&
+            !window.confirm('Se alquila o tiene actividad con horarios, pero no tiene teléfono ni Instagram: ' +
+              'quien la vea en el mapa no va a tener a quién consultar. ¿Publicarla igual?')) return;
+
+        var elegidas = selector.elegidas();
+        var textoFotos = '';
+        if (elegidas && selector.total) {
+          textoFotos = elegidas.length === 0 ? ' Sin fotos: se descartan las ' + selector.total + '.'
+            : elegidas.length < selector.total ? ' Con ' + elegidas.length + ' de las ' + selector.total + ' fotos; el resto se descarta.'
+            : '';
+        }
+
         if (!window.confirm('Se publica "' + nombre + '" en el mapa' +
-            (avisar.checked ? ' y le llega el aviso a quien la propuso.' : ', sin avisarle a nadie.'))) return;
+            (avisar.checked ? ' y le llega el aviso a quien la propuso.' : ', sin avisarle a nadie.') +
+            textoFotos)) return;
 
         estado.enviando = true;
         botonAceptar.disabled = true;
-        var res = await ctx.sb.rpc('admin_aprobar_cancha', {
+        var args = {
           _court_id: c.id,
           _notificar: avisar.checked,
           _campos: {
@@ -303,7 +381,10 @@
             rental_contact: campos.rental_contact.value.trim(),
             contact_instagram: campos.contact_instagram.value.trim(),
           },
-        });
+        };
+        // Solo si la base ya sabe elegir fotos; si no, el parámetro no existe.
+        if (elegidas) args._fotos = elegidas;
+        var res = await ctx.sb.rpc('admin_aprobar_cancha', args);
         estado.enviando = false;
         botonAceptar.disabled = false;
         if (estado.cancelado) return;
